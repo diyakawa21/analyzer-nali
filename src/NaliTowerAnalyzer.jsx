@@ -54,9 +54,9 @@ function runNaliAnalysis(inputs) {
   const unitsPerMonth = (sp * totalFlatsForSale) / saleMonths;
 
   // ── Monthly cost schedule ────────────────────────────────
-  // Default: 20 months based on Excel percentages
+  // Dollar amounts per month directly (matching Excel rows A39:A58)
   const TOTAL_MONTHS = Math.max(constructionMonths, monthlyCostSchedule.length);
-  const costSchedule = monthlyCostSchedule.map(pct => pct * totalConstructionCost);
+  const costSchedule = monthlyCostSchedule;
 
   // ── Monthly sales simulation ─────────────────────────────
   // Month 1 = no sale (index 0), sales start month 2 (index 1)
@@ -165,8 +165,10 @@ function runNaliAnalysis(inputs) {
 // DEFAULT INPUTS (from Excel)
 // ─────────────────────────────────────────────────────────────
 const DEFAULT_COST_SCHEDULE = [
-  0.05, 0.05, 0.06, 0.08, 0.08, 0.08, 0.07, 0.07, 0.07,
-  0.05, 0.05, 0.04, 0.04, 0.04, 0.04, 0.03, 0.03, 0.03, 0.02, 0.02
+  418987.5, 418987.5, 502785, 670380, 670380, 670380,
+  586582.5, 586582.5, 586582.5, 418987.5, 418987.5,
+  335190, 335190, 335190, 335190, 251392.5, 251392.5,
+  251392.5, 167595, 167595
 ];
 
 const DEFAULT_INPUTS = {
@@ -264,17 +266,18 @@ function Sidebar({ inputs, setInputs, results }) {
   })), [setInputs]);
   const updSchedule = useCallback((idx, val) => setInputs(prev => {
     const next = [...prev.monthlyCostSchedule];
-    next[idx] = val / 100;
+    next[idx] = val;
     return { ...prev, monthlyCostSchedule: next };
   }), [setInputs]);
 
   const scheduleTotal = inputs.monthlyCostSchedule.reduce((s, v) => s + v, 0);
+  const scheduleDiff = scheduleTotal - inputs.totalConstructionCost;
   const isCustomSchedule = JSON.stringify(inputs.monthlyCostSchedule) !== JSON.stringify(DEFAULT_COST_SCHEDULE);
 
   const toggle = (s) => setOpenSection(prev => prev === s ? null : s);
 
   return (
-    <aside style={{ width: 300, flexShrink: 0, height: "100vh", overflowY: "auto", background: "var(--surface)", borderRight: "1px solid var(--border)", position: "sticky", top: 0 }}>
+    <aside style={{ width: 360, flexShrink: 0, height: "100vh", overflowY: "auto", background: "var(--surface)", borderRight: "1px solid var(--border)", position: "sticky", top: 0 }}>
 
       {/* Logo */}
       <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--border)" }}>
@@ -372,8 +375,8 @@ function Sidebar({ inputs, setInputs, results }) {
           {openSection === "schedule" && (
             <div style={{ padding: "4px 20px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ fontSize: 10, color: Math.abs(scheduleTotal - 1) > 0.01 ? "var(--danger)" : "var(--green)" }}>
-                  Total: {Math.round(scheduleTotal * 100)}% {Math.abs(scheduleTotal - 1) > 0.01 ? "⚠ must = 100%" : "✓"}
+                <span style={{ fontSize: 10, color: Math.abs(scheduleDiff) > 100 ? "var(--danger)" : "var(--green)" }}>
+                  Total: {fmt(scheduleTotal)} {Math.abs(scheduleDiff) > 100 ? `(${scheduleDiff > 0 ? "+" : ""}${Math.round(scheduleDiff).toLocaleString()} vs budget)` : "✓"}
                 </span>
                 {isCustomSchedule && (
                   <button onClick={() => upd("monthlyCostSchedule", DEFAULT_COST_SCHEDULE)}
@@ -384,15 +387,15 @@ function Sidebar({ inputs, setInputs, results }) {
               </div>
               <InlineField label="Total Construction Budget" prefix="$" value={inputs.totalConstructionCost} onChange={v => upd("totalConstructionCost", v)} />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginTop: 8 }}>
-                {inputs.monthlyCostSchedule.map((pct, i) => (
+                {inputs.monthlyCostSchedule.map((amt, i) => (
                   <div key={i}>
                     <div style={{ fontSize: 8, color: "var(--muted)", marginBottom: 2 }}>Month {i + 1}</div>
                     <div style={{ display: "flex" }}>
-                      <input type="number" value={Math.round(pct * 1000) / 10} min={0} max={100} step={0.1}
+                      <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRight: "none", padding: "4px 5px", fontSize: 9, color: "var(--muted)" }}>$</span>
+                      <input type="number" value={Math.round(amt)} min={0} step={1000}
                         onChange={e => updSchedule(i, parseFloat(e.target.value) || 0)}
-                        style={{ width: "100%", background: "var(--input-bg)", border: "1px solid var(--border)", borderRight: "none", padding: "4px 6px", fontSize: 10, color: "var(--text)", outline: "none", fontFamily: "monospace" }}
+                        style={{ width: "100%", background: "var(--input-bg)", border: "1px solid var(--border)", borderLeft: "none", padding: "4px 6px", fontSize: 10, color: "var(--text)", outline: "none", fontFamily: "monospace" }}
                       />
-                      <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", padding: "4px 5px", fontSize: 9, color: "var(--muted)" }}>%</span>
                     </div>
                   </div>
                 ))}
