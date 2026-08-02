@@ -249,10 +249,10 @@ function InlineField({ label, value, onChange, prefix, suffix, type = "number", 
     <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 12 }}>
       <Label>{label}</Label>
       <div style={{ display: "flex" }}>
-        {prefix && <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRight: "none", padding: "6px 8px", fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center" }}>{prefix}</span>}
+        {prefix && <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRight: "none", padding: "5px 6px", fontSize: 10, color: "var(--muted)", display: "flex", alignItems: "center" }}>{prefix}</span>}
         <input type={type} value={value} min={min}
           onChange={e => onChange(type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)}
-          style={{ flex: 1, background: "var(--input-bg)", border: "1px solid var(--border)", borderLeft: prefix ? "none" : undefined, borderRight: suffix ? "none" : undefined, padding: "6px 10px", fontSize: 12, color: "var(--text)", outline: "none", fontFamily: "'JetBrains Mono', monospace" }}
+          style={{ flex: 1, background: "var(--input-bg)", border: "1px solid var(--border)", borderLeft: prefix ? "none" : undefined, borderRight: suffix ? "none" : undefined, padding: "5px 4px", fontSize: 10, color: "var(--text)", outline: "none", fontFamily: "'JetBrains Mono', monospace", minWidth: 0, width: "100%" }}
         />
         {suffix && <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderLeft: "none", padding: "6px 8px", fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center" }}>{suffix}</span>}
       </div>
@@ -382,11 +382,11 @@ function Sidebar({ inputs, setInputs, results }) {
                   <div key={ft.id} style={{ borderLeft: `2px solid ${COLORS[idx]}`, margin: "8px 16px", padding: "10px 14px", background: "var(--bg)" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>{ft.name} · {ft.area}m²</div>
                     <InlineField label="Flats for Sale" value={ft.flatsForSale} onChange={v => updFt(ft.id, "flatsForSale", v)} min={0} />
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <InlineField label="P1 — On Contract" prefix="$" value={ft.p1} onChange={v => updFt(ft.id, "p1", v)} />
-                      <InlineField label="P2 — After Sale" prefix="$" value={ft.p2} onChange={v => updFt(ft.id, "p2", v)} />
-                      <InlineField label="P3 — After Sale" prefix="$" value={ft.p3} onChange={v => updFt(ft.id, "p3", v)} />
-                      <InlineField label="Monthly Install" prefix="$" value={ft.monthlyInstallment} onChange={v => updFt(ft.id, "monthlyInstallment", v)} />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      <InlineField label="P1" prefix="$" value={ft.p1} onChange={v => updFt(ft.id, "p1", v)} />
+                      <InlineField label="P2" prefix="$" value={ft.p2} onChange={v => updFt(ft.id, "p2", v)} />
+                      <InlineField label="P3" prefix="$" value={ft.p3} onChange={v => updFt(ft.id, "p3", v)} />
+                      <InlineField label="Monthly" prefix="$" value={ft.monthlyInstallment} onChange={v => updFt(ft.id, "monthlyInstallment", v)} />
                     </div>
                     {rft && (
                       <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 6, display: "flex", gap: 12 }}>
