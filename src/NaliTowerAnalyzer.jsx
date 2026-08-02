@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useRef } from "react";
 import {
   AreaChart, Area, BarChart, Bar, Line, LineChart,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -452,12 +452,44 @@ function Sidebar({ inputs, setInputs, results, onClose }) {
 export default function App() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const dashboardRef = useRef(null);
 
   const results = useMemo(() => {
     try { return runNaliAnalysis(inputs); } catch { return null; }
   }, [inputs]);
 
   const r = results;
+
+  // Export dashboard as PNG image
+  // Uses html2canvas to capture the dashboard div and trigger a download
+  async function exportDashboard() {
+    if (!dashboardRef.current) return;
+    setExporting(true);
+    try {
+      // Dynamically load html2canvas from CDN
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+      document.head.appendChild(script);
+      await new Promise(resolve => script.onload = resolve);
+
+      const canvas = await window.html2canvas(dashboardRef.current, {
+        scale: 2,              // 2x resolution for sharp export
+        useCORS: true,
+        backgroundColor: '#f5f2ee',
+        logging: false,
+      });
+
+      // Trigger download
+      const link = document.createElement('a');
+      link.download = `Nali-Tower-Dashboard-${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch(e) {
+      alert('Export failed. Please try again.');
+    }
+    setExporting(false);
+  }
 
   return (
     <>
@@ -499,7 +531,7 @@ export default function App() {
         {/* DASHBOARD — full width always */}
         <main style={{ flex: 1, overflowY: "auto", background: "var(--bg)", width: "100%" }}>
           {r ? (
-            <div style={{ padding: "36px 36px 80px" }}>
+            <div ref={dashboardRef} style={{ padding: "36px 36px 80px" }}>
 
               {/* Header */}
               <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
@@ -510,16 +542,29 @@ export default function App() {
                     {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
                   </p>
                 </div>
-                {/* Hamburger button */}
-                <button onClick={() => setSidebarOpen(true)} style={{
-                  background: "var(--surface)", border: "1px solid var(--border)",
-                  padding: "10px 14px", cursor: "pointer", display: "flex",
-                  flexDirection: "column", gap: 5, flexShrink: 0,
-                }}>
-                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                </button>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  {/* Export button */}
+                  <button onClick={exportDashboard} disabled={exporting} style={{
+                    background: "var(--accent)", border: "none", color: "#fff",
+                    padding: "9px 16px", cursor: exporting ? "wait" : "pointer",
+                    fontSize: 9, fontWeight: 600, letterSpacing: "0.15em",
+                    textTransform: "uppercase", opacity: exporting ? 0.7 : 1,
+                    display: "flex", alignItems: "center", gap: 6,
+                  }}>
+                    <span style={{ fontSize: 13 }}>↓</span>
+                    {exporting ? "Exporting..." : "Export PNG"}
+                  </button>
+                  {/* Hamburger button */}
+                  <button onClick={() => setSidebarOpen(true)} style={{
+                    background: "var(--surface)", border: "1px solid var(--border)",
+                    padding: "10px 14px", cursor: "pointer", display: "flex",
+                    flexDirection: "column", gap: 5, flexShrink: 0,
+                  }}>
+                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                  </button>
+                </div>
               </div>
 
               {/* TABLE 7 summary row — matches dashboard image */}
