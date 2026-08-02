@@ -32,7 +32,10 @@ function runNaliAnalysis(inputs) {
   const sp = saleProbability / 100;
   const ip = installmentProbability / 100;
 
-  // ── Flat type derived values ──────────────────────────────
+  // ── STEP 1: Per flat type calculations ─────────────────
+  // pricePerFlat = area × sale price per m²
+  // P4 = price × 55% - P1 - P2 - P3 (remaining balance at key handover)
+  // monthlyInstallment = remaining balance ÷ (phase3Years × 12)
   const types = flatTypes.map(ft => {
     const pricePerFlat = ft.area * salePricePerSqm;
     const p4 = pricePerFlat * (1 - 0.45) - ft.p1 - ft.p2 - ft.p3;
@@ -43,7 +46,9 @@ function runNaliAnalysis(inputs) {
 
   const totalFlatsForSale = types.reduce((s, t) => s + t.flatsForSale, 0);
 
-  // Weighted averages by flats for sale
+  // ── STEP 2: Weighted averages across flat types ─────────
+  // Weighted by flats for sale per type (not equal weight)
+  // e.g. Type A has 95 flats, Type B has 38 → Type A has more impact
   const avgArea  = types.reduce((s, t) => s + t.area * t.flatsForSale, 0) / totalFlatsForSale;
   const avgP1    = types.reduce((s, t) => s + t.p1   * t.flatsForSale, 0) / totalFlatsForSale;
   const avgP2    = types.reduce((s, t) => s + t.p2   * t.flatsForSale, 0) / totalFlatsForSale;
@@ -53,56 +58,86 @@ function runNaliAnalysis(inputs) {
   // Units sold per month during sale period
   const unitsPerMonth = (sp * totalFlatsForSale) / saleMonths;
 
-  // ── Monthly cost schedule ────────────────────────────────
-  // Dollar amounts per month directly (matching Excel rows A39:A58)
+  // ── STEP 3: Construction cost schedule ──────────────────
+  // Dollar amounts paid to contractor each month (from Excel DB sheet rows A39:A58)
+  // These are hardcoded by the planner based on real construction phases
+  // e.g. early months = less cost (foundations), middle = peak (structure), end = less (finishing)
   const TOTAL_MONTHS = Math.max(constructionMonths, monthlyCostSchedule.length);
-  const costSchedule = monthlyCostSchedule;
+  const costSchedule = monthlyCostSchedule; // direct dollar amounts
 
-  // ── Monthly sales simulation ─────────────────────────────
-  // Month 1 = no sale (index 0), sales start month 2 (index 1)
+  // ── STEP 4: Monthly sales simulation ─────────────────────
+  // Month 1 = no sales (matches Excel — first month is setup/marketing)
+  // Sales start from month 2 and run for saleMonths
+  // Formula: units sold per month = (saleProbability × totalFlatsForSale) / saleMonths
   const monthlySold = new Array(TOTAL_MONTHS + 2).fill(0);
   const cumSold     = new Array(TOTAL_MONTHS + 2).fill(0);
   let cumSoFar = 0;
 
   for (let m = 1; m < saleMonths; m++) {
+    // Can't sell more than what's left
     const canSell = Math.max(0, totalFlatsForSale - cumSoFar);
     const sold    = Math.min(unitsPerMonth, canSell);
     monthlySold[m] = sold;
     cumSoFar      += sold;
     cumSold[m]     = cumSoFar;
   }
+  // After sale period ends, cumulative stays at final value
   for (let m = saleMonths; m < TOTAL_MONTHS + 2; m++) {
     cumSold[m] = cumSoFar;
   }
 
-  // ── Monthly cash flow ────────────────────────────────────
-  const fixedMonthlyIncome = OLD_FLATS * OLD_MONTHLY * ip; // 150 × 750 × 0.7 = 78,750
+  // ── STEP 5: Fixed income from already-sold 150 flats ─────
+  // UNIQUE TO NALI TOWER: 150 flats were sold before construction started
+  // Each pays $750/month installment throughout construction
+  // We apply installment collection probability (70%) since not all pay on time
+  // Formula: 150 × $750 × 70% = $78,750/month (every month, no matter what)
+  const fixedMonthlyIncome = OLD_FLATS * OLD_MONTHLY * ip;
 
   const months = [];
   let cumCashIn = 0, cumCashOut = 0;
 
+  // ── STEP 6: Monthly cash flow loop ───────────────────────
   for (let m = 0; m < TOTAL_MONTHS + 1; m++) {
-    const sold = monthlySold[m];
+    const sold = monthlySold[m]; // units sold this month
 
-    // P1 (net of commission) — only during sale months
+    // P1 INCOME (net of agent commission):
+    // Gross P1 = units sold × average P1 payment per flat
+    // Commission deducted = units sold × average area × commission per m²
+    // Net P1 = Gross P1 - Commission (agent gets paid when sale happens)
     const p1Gross    = sold * avgP1;
     const commission = sold * avgArea * commissionPerSqm;
     const p1Net      = p1Gross - commission;
 
-    // P2: arrives p2Timing months after sale (first sale = month 2 = index 1)
+    // P2 INCOME (delayed payment):
+    // Arrives exactly p2Timing months after the sale contract
+    // e.g. if p2Timing=3 and sale was month 2, P2 arrives month 5
+    // Applied with installment collection probability (not all buyers pay on time)
     const p2 = (m >= p2Timing + 1) ? monthlySold[m - p2Timing] * avgP2 * ip : 0;
 
-    // P3: arrives p3Timing months after sale
+    // P3 INCOME (delayed payment):
+    // Same logic as P2 but arrives p3Timing months after sale
+    // e.g. if p3Timing=7 and sale was month 2, P3 arrives month 9
     const p3 = (m >= p3Timing + 1) ? monthlySold[m - p3Timing] * avgP3 * ip : 0;
 
-    // P4 turnkey: at construction key month (constructionMonths - 1)
+    // P4 INCOME (turnkey / handover payment):
+    // Paid by buyer when they receive the key at end of construction
+    // = total cumulative units sold × avg P4 per flat × sale probability
+    // Only collected in the final construction month
     const p4 = (m === constructionMonths - 1) ? cumSold[m] * avgP4 * sp : 0;
 
-    // Fixed income from already-sold 150 flats (every month)
+    // FIXED INCOME from already-sold 150 flats (every month during construction)
     const fixedIncome = (m < TOTAL_MONTHS) ? fixedMonthlyIncome : 0;
 
+    // TOTAL CASH IN this month = P1 + P2 + P3 + P4 (if key month) + fixed
     const cashIn  = Math.round(p1Net + p2 + p3 + p4 + fixedIncome);
+
+    // CASH OUT = contractor payment for this month (from cost schedule)
+    // Construction cost is paid regardless of how many flats are sold
     const cashOut = m < costSchedule.length ? Math.round(costSchedule[m]) : 0;
+
+    // NET FUNDING = Cash In - Cash Out
+    // Negative = investor must top up the shortfall
+    // Positive = more came in than went out (investor recoups)
     const net     = cashIn - cashOut;
 
     cumCashIn  += cashIn;
@@ -277,7 +312,7 @@ function Sidebar({ inputs, setInputs, results }) {
   const toggle = (s) => setOpenSection(prev => prev === s ? null : s);
 
   return (
-    <aside style={{ width: 360, flexShrink: 0, height: "100vh", overflowY: "auto", background: "var(--surface)", borderRight: "1px solid var(--border)", position: "sticky", top: 0 }}>
+    <aside style={{ width: 420, flexShrink: 0, height: "100vh", overflowY: "auto", background: "var(--surface)", borderRight: "1px solid var(--border)", position: "sticky", top: 0 }}>
 
       {/* Logo */}
       <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--border)" }}>
@@ -344,13 +379,13 @@ function Sidebar({ inputs, setInputs, results }) {
               {inputs.flatTypes.map((ft, idx) => {
                 const rft = results?.types[idx];
                 return (
-                  <div key={ft.id} style={{ borderLeft: `2px solid ${COLORS[idx]}`, margin: "8px 20px", padding: "10px 12px", background: "var(--bg)" }}>
+                  <div key={ft.id} style={{ borderLeft: `2px solid ${COLORS[idx]}`, margin: "8px 16px", padding: "10px 14px", background: "var(--bg)" }}>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--text)", marginBottom: 10 }}>{ft.name} · {ft.area}m²</div>
                     <InlineField label="Flats for Sale" value={ft.flatsForSale} onChange={v => updFt(ft.id, "flatsForSale", v)} min={0} />
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                      <InlineField label="P1 Initial" prefix="$" value={ft.p1} onChange={v => updFt(ft.id, "p1", v)} />
-                      <InlineField label="P2 Payment" prefix="$" value={ft.p2} onChange={v => updFt(ft.id, "p2", v)} />
-                      <InlineField label="P3 Payment" prefix="$" value={ft.p3} onChange={v => updFt(ft.id, "p3", v)} />
+                      <InlineField label="P1 — On Contract" prefix="$" value={ft.p1} onChange={v => updFt(ft.id, "p1", v)} />
+                      <InlineField label="P2 — After Sale" prefix="$" value={ft.p2} onChange={v => updFt(ft.id, "p2", v)} />
+                      <InlineField label="P3 — After Sale" prefix="$" value={ft.p3} onChange={v => updFt(ft.id, "p3", v)} />
                       <InlineField label="Monthly Install" prefix="$" value={ft.monthlyInstallment} onChange={v => updFt(ft.id, "monthlyInstallment", v)} />
                     </div>
                     {rft && (
