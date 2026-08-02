@@ -500,19 +500,37 @@ export default function App() {
       await loadHtml2Canvas();
       const date = new Date().toISOString().slice(0,10);
       const opts = { scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false };
-      // Page 1
+
+      // Render both canvases first
       const c1 = await window.html2canvas(page1Ref.current, opts);
-      const l1 = document.createElement('a');
-      l1.download = `Nali-Tower-Page1-${date}.png`;
-      l1.href = c1.toDataURL('image/png');
-      l1.click();
-      // Short delay then Page 2
-      await new Promise(r => setTimeout(r, 800));
       const c2 = await window.html2canvas(page2Ref.current, opts);
-      const l2 = document.createElement('a');
-      l2.download = `Nali-Tower-Page2-${date}.png`;
-      l2.href = c2.toDataURL('image/png');
-      l2.click();
+
+      // Convert to blobs and use object URLs — more reliable than data URLs for multiple downloads
+      c1.toBlob(blob1 => {
+        const url1 = URL.createObjectURL(blob1);
+        const l1 = document.createElement('a');
+        l1.href = url1;
+        l1.download = `Nali-Tower-Page1-${date}.png`;
+        document.body.appendChild(l1);
+        l1.click();
+        document.body.removeChild(l1);
+        setTimeout(() => URL.revokeObjectURL(url1), 1000);
+      }, 'image/png');
+
+      // Slight delay then trigger page 2
+      await new Promise(r => setTimeout(r, 1500));
+
+      c2.toBlob(blob2 => {
+        const url2 = URL.createObjectURL(blob2);
+        const l2 = document.createElement('a');
+        l2.href = url2;
+        l2.download = `Nali-Tower-Page2-${date}.png`;
+        document.body.appendChild(l2);
+        l2.click();
+        document.body.removeChild(l2);
+        setTimeout(() => URL.revokeObjectURL(url2), 1000);
+      }, 'image/png');
+
     } catch(e) { alert('Export failed. Please try again.'); }
     setExporting(false);
   }
