@@ -330,7 +330,6 @@ function Sidebar({ inputs, setInputs, results, onClose }) {
             <div style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.15em", textTransform: "uppercase" }}>Feasibility Analysis</div>
           </div>
         </div>
-        </div>
       </div>
 
       {/* Fixed info banner */}
