@@ -454,6 +454,8 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const dashboardRef = useRef(null);
+  const page1Ref = useRef(null);
+  const page2Ref = useRef(null);
 
   const results = useMemo(() => {
     try { return runNaliAnalysis(inputs); } catch { return null; }
@@ -461,33 +463,46 @@ export default function App() {
 
   const r = results;
 
-  // Export dashboard as PNG image
-  // Uses html2canvas to capture the dashboard div and trigger a download
-  async function exportDashboard() {
-    if (!dashboardRef.current) return;
-    setExporting(true);
+  // Load html2canvas once and cache it
+  async function loadHtml2Canvas() {
+    if (window.html2canvas) return;
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+    document.head.appendChild(script);
+    await new Promise(resolve => script.onload = resolve);
+  }
+
+  // Export Page 1: KPIs + Charts (top half of dashboard)
+  async function exportPage1() {
+    if (!page1Ref.current) return;
+    setExporting('page1');
     try {
-      // Dynamically load html2canvas from CDN
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
-      document.head.appendChild(script);
-      await new Promise(resolve => script.onload = resolve);
-
-      const canvas = await window.html2canvas(dashboardRef.current, {
-        scale: 2,              // 2x resolution for sharp export
-        useCORS: true,
-        backgroundColor: '#f5f2ee',
-        logging: false,
+      await loadHtml2Canvas();
+      const canvas = await window.html2canvas(page1Ref.current, {
+        scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false,
       });
-
-      // Trigger download
       const link = document.createElement('a');
-      link.download = `Nali-Tower-Dashboard-${new Date().toISOString().slice(0,10)}.png`;
+      link.download = `Nali-Tower-Page1-${new Date().toISOString().slice(0,10)}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-    } catch(e) {
-      alert('Export failed. Please try again.');
-    }
+    } catch(e) { alert('Export failed.'); }
+    setExporting(false);
+  }
+
+  // Export Page 2: Tables (flat breakdown + monthly schedule)
+  async function exportPage2() {
+    if (!page2Ref.current) return;
+    setExporting('page2');
+    try {
+      await loadHtml2Canvas();
+      const canvas = await window.html2canvas(page2Ref.current, {
+        scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false,
+      });
+      const link = document.createElement('a');
+      link.download = `Nali-Tower-Page2-${new Date().toISOString().slice(0,10)}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch(e) { alert('Export failed.'); }
     setExporting(false);
   }
 
@@ -543,16 +558,27 @@ export default function App() {
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {/* Export button */}
-                  <button onClick={exportDashboard} disabled={exporting} style={{
+                  {/* Export Page 1 button */}
+                  <button onClick={exportPage1} disabled={!!exporting} style={{
                     background: "var(--accent)", border: "none", color: "#fff",
-                    padding: "9px 16px", cursor: exporting ? "wait" : "pointer",
-                    fontSize: 9, fontWeight: 600, letterSpacing: "0.15em",
-                    textTransform: "uppercase", opacity: exporting ? 0.7 : 1,
-                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "9px 14px", cursor: exporting ? "wait" : "pointer",
+                    fontSize: 9, fontWeight: 600, letterSpacing: "0.12em",
+                    textTransform: "uppercase", opacity: exporting === 'page1' ? 0.7 : 1,
+                    display: "flex", alignItems: "center", gap: 5,
                   }}>
-                    <span style={{ fontSize: 13 }}>↓</span>
-                    {exporting ? "Exporting..." : "Export PNG"}
+                    <span>↓</span>
+                    {exporting === 'page1' ? "..." : "Page 1"}
+                  </button>
+                  {/* Export Page 2 button */}
+                  <button onClick={exportPage2} disabled={!!exporting} style={{
+                    background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)",
+                    padding: "9px 14px", cursor: exporting ? "wait" : "pointer",
+                    fontSize: 9, fontWeight: 600, letterSpacing: "0.12em",
+                    textTransform: "uppercase", opacity: exporting === 'page2' ? 0.7 : 1,
+                    display: "flex", alignItems: "center", gap: 5,
+                  }}>
+                    <span>↓</span>
+                    {exporting === 'page2' ? "..." : "Page 2"}
                   </button>
                   {/* Hamburger button */}
                   <button onClick={() => setSidebarOpen(true)} style={{
@@ -566,6 +592,9 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              {/* PAGE 1: KPIs + Charts */}
+              <div ref={page1Ref}>
 
               {/* TABLE 7 summary row — matches dashboard image */}
               <div style={{ background: "var(--surface)", border: "1px solid var(--border)", padding: "16px 20px", marginBottom: 20, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 16 }}>
@@ -680,6 +709,11 @@ export default function App() {
                 </div>
               </div>
 
+              </div>{/* end page1 */}
+
+              {/* PAGE 2: Tables */}
+              <div ref={page2Ref} style={{ paddingTop: 24 }}>
+
               {/* Flat type table */}
               <div style={{ marginBottom: 28 }}>
                 <div style={{ fontSize: 8, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 12 }}>Flat Type Breakdown</div>
@@ -766,6 +800,7 @@ export default function App() {
                 ))}
               </div>
 
+              </div>{/* end page2 */}
             </div>
           ) : (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--muted)", fontSize: 12, letterSpacing: "0.1em", textTransform: "uppercase" }}>
