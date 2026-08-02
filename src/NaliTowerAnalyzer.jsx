@@ -291,7 +291,7 @@ const ChartTip = ({ active, payload, label }) => {
 // ─────────────────────────────────────────────────────────────
 // SIDEBAR INPUTS
 // ─────────────────────────────────────────────────────────────
-function Sidebar({ inputs, setInputs, results }) {
+function Sidebar({ inputs, setInputs, results, onClose }) {
   const [openSection, setOpenSection] = useState("params");
 
   const upd = useCallback((key, val) => setInputs(prev => ({ ...prev, [key]: val })), [setInputs]);
@@ -314,9 +314,12 @@ function Sidebar({ inputs, setInputs, results }) {
   return (
     <aside style={{ width: 420, flexShrink: 0, height: "100vh", overflowY: "auto", background: "var(--surface)", borderRight: "1px solid var(--border)", position: "sticky", top: 0 }}>
 
-      {/* Logo */}
+      {/* Logo + close button */}
       <div style={{ padding: "18px 20px 14px", borderBottom: "1px solid var(--border)" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", cursor: "pointer", color: "var(--muted)", fontSize: 20, lineHeight: 1, padding: 2 }}>×</button>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10 }}>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.25em", color: "var(--text)" }}>SK</span>
             <div style={{ width: 22, height: 1, background: "var(--accent)" }} />
@@ -326,6 +329,7 @@ function Sidebar({ inputs, setInputs, results }) {
             <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text)", letterSpacing: "0.05em" }}>Nali Tower</div>
             <div style={{ fontSize: 8, color: "var(--muted)", letterSpacing: "0.15em", textTransform: "uppercase" }}>Feasibility Analysis</div>
           </div>
+        </div>
         </div>
       </div>
 
@@ -448,6 +452,7 @@ function Sidebar({ inputs, setInputs, results }) {
 // ─────────────────────────────────────────────────────────────
 export default function App() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const results = useMemo(() => {
     try { return runNaliAnalysis(inputs); } catch { return null; }
@@ -473,22 +478,49 @@ export default function App() {
         button{font-family:inherit}
       `}</style>
 
-      <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
+      <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative" }}>
 
-        <Sidebar inputs={inputs} setInputs={setInputs} results={r} />
+        {/* OVERLAY when sidebar open */}
+        {sidebarOpen && (
+          <div onClick={() => setSidebarOpen(false)} style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.3)", zIndex: 40,
+          }} />
+        )}
 
-        {/* DASHBOARD */}
-        <main style={{ flex: 1, overflowY: "auto", background: "var(--bg)" }}>
+        {/* SLIDING SIDEBAR */}
+        <div style={{
+          position: "fixed", top: 0, left: 0, height: "100vh", zIndex: 50,
+          transform: sidebarOpen ? "translateX(0)" : "translateX(-100%)",
+          transition: "transform 0.25s ease",
+          boxShadow: sidebarOpen ? "4px 0 24px rgba(0,0,0,0.15)" : "none",
+        }}>
+          <Sidebar inputs={inputs} setInputs={setInputs} results={r} onClose={() => setSidebarOpen(false)} />
+        </div>
+
+        {/* DASHBOARD — full width always */}
+        <main style={{ flex: 1, overflowY: "auto", background: "var(--bg)", width: "100%" }}>
           {r ? (
             <div style={{ padding: "36px 36px 80px" }}>
 
               {/* Header */}
-              <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>
-                <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
-                <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
-                <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                  {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
-                </p>
+              <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
+                  <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
+                  <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                    {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
+                  </p>
+                </div>
+                {/* Hamburger button */}
+                <button onClick={() => setSidebarOpen(true)} style={{
+                  background: "var(--surface)", border: "1px solid var(--border)",
+                  padding: "10px 14px", cursor: "pointer", display: "flex",
+                  flexDirection: "column", gap: 5, flexShrink: 0,
+                }}>
+                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                  <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                </button>
               </div>
 
               {/* TABLE 7 summary row — matches dashboard image */}
