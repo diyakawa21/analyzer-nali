@@ -453,6 +453,7 @@ export default function App() {
   const [inputs, setInputs] = useState(DEFAULT_INPUTS);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const dashboardRef = useRef(null);
   const page1Ref = useRef(null);
   const page2Ref = useRef(null);
@@ -463,7 +464,7 @@ export default function App() {
 
   const r = results;
 
-  // Load html2canvas once and cache it
+  // Load html2canvas library from CDN
   async function loadHtml2Canvas() {
     if (window.html2canvas) return;
     const script = document.createElement('script');
@@ -472,37 +473,47 @@ export default function App() {
     await new Promise(resolve => script.onload = resolve);
   }
 
-  // Export Page 1: KPIs + Charts (top half of dashboard)
-  async function exportPage1() {
-    if (!page1Ref.current) return;
-    setExporting('page1');
+  // Export as 1 page — full dashboard in one PNG
+  async function exportOnePage() {
+    if (!dashboardRef.current) return;
+    setShowExportMenu(false);
+    setExporting(true);
     try {
       await loadHtml2Canvas();
-      const canvas = await window.html2canvas(page1Ref.current, {
+      const canvas = await window.html2canvas(dashboardRef.current, {
         scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false,
       });
       const link = document.createElement('a');
-      link.download = `Nali-Tower-Page1-${new Date().toISOString().slice(0,10)}.png`;
+      link.download = `Nali-Tower-Dashboard-${new Date().toISOString().slice(0,10)}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
-    } catch(e) { alert('Export failed.'); }
+    } catch(e) { alert('Export failed. Please try again.'); }
     setExporting(false);
   }
 
-  // Export Page 2: Tables (flat breakdown + monthly schedule)
-  async function exportPage2() {
-    if (!page2Ref.current) return;
-    setExporting('page2');
+  // Export as 2 pages — Page1 (KPIs+charts) and Page2 (tables) as separate PNGs
+  async function exportTwoPages() {
+    if (!page1Ref.current || !page2Ref.current) return;
+    setShowExportMenu(false);
+    setExporting(true);
     try {
       await loadHtml2Canvas();
-      const canvas = await window.html2canvas(page2Ref.current, {
-        scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false,
-      });
-      const link = document.createElement('a');
-      link.download = `Nali-Tower-Page2-${new Date().toISOString().slice(0,10)}.png`;
-      link.href = canvas.toDataURL('image/png');
-      link.click();
-    } catch(e) { alert('Export failed.'); }
+      const date = new Date().toISOString().slice(0,10);
+      const opts = { scale: 2, useCORS: true, backgroundColor: '#f5f2ee', logging: false };
+      // Page 1
+      const c1 = await window.html2canvas(page1Ref.current, opts);
+      const l1 = document.createElement('a');
+      l1.download = `Nali-Tower-Page1-${date}.png`;
+      l1.href = c1.toDataURL('image/png');
+      l1.click();
+      // Short delay then Page 2
+      await new Promise(r => setTimeout(r, 800));
+      const c2 = await window.html2canvas(page2Ref.current, opts);
+      const l2 = document.createElement('a');
+      l2.download = `Nali-Tower-Page2-${date}.png`;
+      l2.href = c2.toDataURL('image/png');
+      l2.click();
+    } catch(e) { alert('Export failed. Please try again.'); }
     setExporting(false);
   }
 
@@ -558,28 +569,44 @@ export default function App() {
                   </p>
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {/* Export Page 1 button */}
-                  <button onClick={exportPage1} disabled={!!exporting} style={{
-                    background: "var(--accent)", border: "none", color: "#fff",
-                    padding: "9px 14px", cursor: exporting ? "wait" : "pointer",
-                    fontSize: 9, fontWeight: 600, letterSpacing: "0.12em",
-                    textTransform: "uppercase", opacity: exporting === 'page1' ? 0.7 : 1,
-                    display: "flex", alignItems: "center", gap: 5,
-                  }}>
-                    <span>↓</span>
-                    {exporting === 'page1' ? "..." : "Page 1"}
-                  </button>
-                  {/* Export Page 2 button */}
-                  <button onClick={exportPage2} disabled={!!exporting} style={{
-                    background: "var(--surface2)", border: "1px solid var(--border)", color: "var(--text)",
-                    padding: "9px 14px", cursor: exporting ? "wait" : "pointer",
-                    fontSize: 9, fontWeight: 600, letterSpacing: "0.12em",
-                    textTransform: "uppercase", opacity: exporting === 'page2' ? 0.7 : 1,
-                    display: "flex", alignItems: "center", gap: 5,
-                  }}>
-                    <span>↓</span>
-                    {exporting === 'page2' ? "..." : "Page 2"}
-                  </button>
+                  {/* Export dropdown */}
+                  <div style={{ position: "relative" }}>
+                    <button onClick={() => setShowExportMenu(m => !m)} disabled={!!exporting} style={{
+                      background: "var(--accent)", border: "none", color: "#fff",
+                      padding: "9px 16px", cursor: exporting ? "wait" : "pointer",
+                      fontSize: 9, fontWeight: 600, letterSpacing: "0.15em",
+                      textTransform: "uppercase", opacity: exporting ? 0.7 : 1,
+                      display: "flex", alignItems: "center", gap: 6,
+                    }}>
+                      <span>↓</span>
+                      {exporting ? "Exporting..." : "Export PNG ▾"}
+                    </button>
+                    {showExportMenu && (
+                      <div style={{
+                        position: "absolute", top: "calc(100% + 4px)", right: 0,
+                        background: "var(--surface)", border: "1px solid var(--border)",
+                        zIndex: 200, minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+                      }}>
+                        <button onClick={exportOnePage} style={{
+                          width: "100%", padding: "10px 16px", background: "transparent",
+                          border: "none", borderBottom: "1px solid var(--border)",
+                          textAlign: "left", cursor: "pointer", fontSize: 10,
+                          color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                        }}>
+                          ↓ 1 Page (full)
+                        </button>
+                        <button onClick={exportTwoPages} style={{
+                          width: "100%", padding: "10px 16px", background: "transparent",
+                          border: "none", textAlign: "left", cursor: "pointer", fontSize: 10,
+                          color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                        }}>
+                          ↓ 2 Pages (split)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   {/* Hamburger button */}
                   <button onClick={() => setSidebarOpen(true)} style={{
                     background: "var(--surface)", border: "1px solid var(--border)",
