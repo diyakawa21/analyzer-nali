@@ -90,7 +90,7 @@ function runNaliAnalysis(inputs) {
   // UNIQUE TO NALI TOWER: 150 flats were sold before construction started
   // Each pays $750/month installment throughout construction
   // We apply installment collection probability (70%) since not all pay on time
-  // Formula: 150 × $750 × 70% = $78,750/month (every month, no matter what)
+  // Formula: 150 × $750 × installmentProbability% (updates live when probability changes)
   const fixedMonthlyIncome = OLD_FLATS * OLD_MONTHLY * ip;
 
   const months = [];
@@ -252,7 +252,7 @@ function InlineField({ label, value, onChange, prefix, suffix, type = "number", 
         {prefix && <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderRight: "none", padding: "5px 6px", fontSize: 10, color: "var(--muted)", display: "flex", alignItems: "center" }}>{prefix}</span>}
         <input type={type} value={value} min={min}
           onChange={e => onChange(type === "number" ? (parseFloat(e.target.value) || 0) : e.target.value)}
-          style={{ flex: 1, background: "var(--input-bg)", border: "1px solid var(--border)", borderLeft: prefix ? "none" : undefined, borderRight: suffix ? "none" : undefined, padding: "5px 4px", fontSize: 10, color: "var(--text)", outline: "none", fontFamily: "'JetBrains Mono', monospace", minWidth: 0, width: "100%" }}
+          style={{ flex: 1, background: "var(--input-bg)", border: "1px solid var(--border)", borderLeft: prefix ? "none" : undefined, borderRight: suffix ? "none" : undefined, padding: "5px 4px", fontSize: 10, color: "var(--text)", outline: "none", fontFamily: "'Calibri', sans-serif", minWidth: 0, width: "100%" }}
         />
         {suffix && <span style={{ background: "var(--surface2)", border: "1px solid var(--border)", borderLeft: "none", padding: "6px 8px", fontSize: 11, color: "var(--muted)", display: "flex", alignItems: "center" }}>{suffix}</span>}
       </div>
@@ -266,7 +266,7 @@ function KpiCard({ label, value, sub, topColor, negative }) {
     <div style={{ background: "var(--surface)", padding: "16px 18px", position: "relative", overflow: "hidden" }}>
       {topColor && <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: topColor }} />}
       <div style={{ fontSize: 8, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.2em", marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 400, fontFamily: "'Cormorant Garamond', serif", color: negative ? "var(--danger)" : "var(--text)", lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 20, fontWeight: 400, fontFamily: "'Calibri', sans-serif", color: negative ? "var(--danger)" : "var(--text)", lineHeight: 1 }}>{value}</div>
       {sub && <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 5 }}>{sub}</div>}
     </div>
   );
@@ -538,7 +538,7 @@ export default function App() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500&family=Montserrat:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+        
         *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
         :root{
           --bg:#f5f2ee; --surface:#ffffff; --surface2:#f0ece7;
@@ -546,11 +546,11 @@ export default function App() {
           --muted:#9a9088; --accent:#c0392b; --gold:#b8953a;
           --green:#27ae60; --danger:#e74c3c; --input-bg:#f8f5f1;
         }
-        body{background:var(--bg);color:var(--text);font-family:'Montserrat',sans-serif;-webkit-font-smoothing:antialiased}
+        body{background:var(--bg);color:var(--text);font-family:'Calibri',sans-serif;-webkit-font-smoothing:antialiased}
         input:focus{outline:1px solid var(--accent)!important}
         input[type=number]::-webkit-inner-spin-button{opacity:.2}
         ::-webkit-scrollbar{width:4px}::-webkit-scrollbar-thumb{background:var(--border)}
-        button{font-family:inherit}
+        button{font-family:'Calibri',sans-serif}
       `}</style>
 
       <div style={{ display: "flex", height: "100vh", overflow: "hidden", position: "relative" }}>
@@ -581,7 +581,7 @@ export default function App() {
               <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
                 <div>
                   <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
-                  <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Cormorant Garamond', serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
+                  <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Calibri', sans-serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
                   <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
                     {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
                   </p>
@@ -652,7 +652,7 @@ export default function App() {
                 ].map(([label, val, sub]) => (
                   <div key={label}>
                     <div style={{ fontSize: 8, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.15em", marginBottom: 6 }}>{label}</div>
-                    <div style={{ fontSize: 16, fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, color: "var(--text)" }}>{val}</div>
+                    <div style={{ fontSize: 16, fontFamily: "'Calibri', sans-serif", fontWeight: 400, color: "var(--text)" }}>{val}</div>
                     <div style={{ fontSize: 9, color: "var(--muted)", marginTop: 3 }}>{sub}</div>
                   </div>
                 ))}
@@ -840,7 +840,7 @@ export default function App() {
                 ].map(([k, v]) => (
                   <div key={k}>
                     <div style={{ fontSize: 8, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 3 }}>{k}</div>
-                    <div style={{ fontSize: 12, fontFamily: "'JetBrains Mono', monospace", color: "var(--text2)" }}>{v}</div>
+                    <div style={{ fontSize: 12, fontFamily: "'Calibri', sans-serif", color: "var(--text2)" }}>{v}</div>
                   </div>
                 ))}
               </div>
