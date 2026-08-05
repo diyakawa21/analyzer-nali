@@ -1,3 +1,4 @@
+// v20260805-160230 - corrected Phase 2 engine
 import { useState, useMemo, useCallback } from "react";
 import {
   AreaChart, Area, BarChart, Bar, Line,
