@@ -91,27 +91,38 @@ function runNaliAnalysis(inputs) {
     // Fixed income (months 2..n+1)
     const fixedIncome = (m >= 2 && m <= n + 1) ? fixedMonthlyIncome : 0;
 
-    // Extra payments (P4, P5, ...)
+    // Extra payments — global extras + per-flat-type extras
     let extraIncome = 0;
     const extraBreakdown = {};
+
+    // Global extra payments (from extraPayments array)
     for (const ep of extraPayments) {
       if (!ep.amount || ep.amount === 0) continue;
       let income = 0;
       if (ep.timingType === "absolute") {
-        // Paid at a specific construction month (absolute)
-        if (m === ep.month) {
-          income = cumSold[m] * ep.amount * sp * ip;
-        }
+        if (m === ep.month) income = cumSold[m] * ep.amount * sp * ip;
       } else {
-        // Paid N months after sale (like P2/P3)
-        // Source = m - (ep.month - 1), must be sale month
         const epSrc = m - (ep.month - 1);
-        if (epSrc >= 2 && epSrc <= n + 1) {
-          income = monthlySold[epSrc] * ep.amount * ip;
-        }
+        if (epSrc >= 2 && epSrc <= n + 1) income = monthlySold[epSrc] * ep.amount * ip;
       }
       extraIncome += income;
       extraBreakdown[ep.id] = Math.round(income);
+    }
+
+    // Per-flat-type extra payments (P4, P5... added inside each flat type)
+    for (const t of types) {
+      for (const ep of (t.extraPs || [])) {
+        if (!ep.amount || ep.amount === 0) continue;
+        const ftUnitsPerMonth = (sp * t.flatsForSale) / n;
+        let income = 0;
+        if (ep.timingType === "absolute") {
+          if (m === ep.month) income = cumSold[m] * (t.flatsForSale / totalFlatsForSale) * ep.amount * sp * ip;
+        } else {
+          const epSrc = m - (ep.month - 1);
+          if (epSrc >= 2 && epSrc <= n + 1) income = monthlySold[epSrc] * (t.flatsForSale / totalFlatsForSale) * ep.amount * ip;
+        }
+        extraIncome += income;
+      }
     }
 
     const cashIn  = Math.round(p1Net + p2 + p3 + install + fixedIncome + extraIncome);
@@ -199,10 +210,10 @@ const DEFAULT_INPUTS = {
   monthlyCostSchedule: [418987.5,418987.5,502785,670380,670380,670380,586582.5,586582.5,586582.5],
   extraPayments: [],
   flatTypes: [
-    { id:1, name:"Type A – 223m²", area:223, floorsCount:1, unitsPerFloor:165, flatsForSale:95,  p1:35000, p2:20000, p3:10000, monthlyInstallment:500 },
-    { id:2, name:"Type B – 201m²", area:201, floorsCount:1, unitsPerFloor:76,  flatsForSale:38,  p1:30000, p2:20000, p3:10000, monthlyInstallment:500 },
-    { id:3, name:"Type C – 164m²", area:164, floorsCount:1, unitsPerFloor:83,  flatsForSale:27,  p1:25000, p2:20000, p3:70000, monthlyInstallment:500 },
-    { id:4, name:"Type D – 108m²", area:108, floorsCount:1, unitsPerFloor:9,   flatsForSale:0,   p1:0,     p2:0,     p3:0,     monthlyInstallment:500 },
+    { id:1, name:"Type A – 223m²", area:223, floorsCount:1, unitsPerFloor:165, flatsForSale:95,  p1:35000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
+    { id:2, name:"Type B – 201m²", area:201, floorsCount:1, unitsPerFloor:76,  flatsForSale:38,  p1:30000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
+    { id:3, name:"Type C – 164m²", area:164, floorsCount:1, unitsPerFloor:83,  flatsForSale:27,  p1:25000, p2:20000, p3:70000, monthlyInstallment:500, extraPs:[] },
+    { id:4, name:"Type D – 108m²", area:108, floorsCount:1, unitsPerFloor:9,   flatsForSale:0,   p1:0,     p2:0,     p3:0,     monthlyInstallment:500, extraPs:[] },
   ],
 };
 
@@ -268,11 +279,26 @@ function Sidebar({ inputs, setInputs, results, onClose }) {
 
   const upd    = useCallback((key,val) => setInputs(prev => ({...prev,[key]:val})),[setInputs]);
   const updFt  = useCallback((id,key,val) => setInputs(prev => ({...prev,flatTypes:prev.flatTypes.map(ft=>ft.id===id?{...ft,[key]:val}:ft)})),[setInputs]);
+  const addExtraP = useCallback((ftId) => setInputs(prev => ({
+    ...prev, flatTypes: prev.flatTypes.map(ft => ft.id !== ftId ? ft : {
+      ...ft, extraPs: [...(ft.extraPs||[]), { id:Date.now(), name:`P${4+(ft.extraPs||[]).length}`, amount:0, timingType:"afterSale", month:4 }]
+    })
+  })),[setInputs]);
+  const updExtraP = useCallback((ftId, epId, key, val) => setInputs(prev => ({
+    ...prev, flatTypes: prev.flatTypes.map(ft => ft.id !== ftId ? ft : {
+      ...ft, extraPs: (ft.extraPs||[]).map(ep => ep.id !== epId ? ep : {...ep, [key]:val})
+    })
+  })),[setInputs]);
+  const removeExtraP = useCallback((ftId, epId) => setInputs(prev => ({
+    ...prev, flatTypes: prev.flatTypes.map(ft => ft.id !== ftId ? ft : {
+      ...ft, extraPs: (ft.extraPs||[]).filter(ep => ep.id !== epId)
+    })
+  })),[setInputs]);
   const updEp  = useCallback((id,key,val) => setInputs(prev => ({...prev,extraPayments:prev.extraPayments.map(ep=>ep.id===id?{...ep,[key]:val}:ep)})),[setInputs]);
   const updSch = useCallback((idx,val) => setInputs(prev => { const next=[...prev.monthlyCostSchedule]; next[idx]=val; return {...prev,monthlyCostSchedule:next}; }),[setInputs]);
 
   const addFlatType = () => {
-    const newFt = { id:Date.now(), name:`Type ${String.fromCharCode(65+inputs.flatTypes.length)}`, area:0, floorsCount:1, unitsPerFloor:0, flatsForSale:0, p1:0, p2:0, p3:0, monthlyInstallment:0 };
+    const newFt = { id:Date.now(), name:`Type ${String.fromCharCode(65+inputs.flatTypes.length)}`, area:0, floorsCount:1, unitsPerFloor:0, flatsForSale:0, p1:0, p2:0, p3:0, monthlyInstallment:0, extraPs:[] };
     setInputs(prev => ({...prev, flatTypes:[...prev.flatTypes, newFt]}));
   };
   const removeFlatType = id => setInputs(prev => ({...prev, flatTypes:prev.flatTypes.filter(ft=>ft.id!==id)}));
@@ -364,9 +390,35 @@ function Sidebar({ inputs, setInputs, results, onClose }) {
                       <InlineField label="P3"             prefix="$"  value={ft.p3}            onChange={v=>updFt(ft.id,"p3",v)} />
                       <InlineField label="Monthly Install" prefix="$" value={ft.monthlyInstallment} onChange={v=>updFt(ft.id,"monthlyInstallment",v)} />
                     </div>
+                    {/* Extra payment stages per flat type */}
+                    {(ft.extraPs||[]).map((ep, epIdx) => (
+                      <div key={ep.id} style={{ marginTop:8, padding:"8px 10px", background:"var(--surface2)", border:"1px solid var(--border)" }}>
+                        <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", marginBottom:6 }}>
+                          <input value={ep.name} onChange={e=>updExtraP(ft.id,ep.id,"name",e.target.value)}
+                            style={{ fontSize:10, fontWeight:700, background:"transparent", border:"none", outline:"none", color:"var(--text)", width:60 }}/>
+                          <button onClick={()=>removeExtraP(ft.id,ep.id)} style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:14 }}>×</button>
+                        </div>
+                        <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:6 }}>
+                          <InlineField label="Amount" prefix="$" value={ep.amount} onChange={v=>updExtraP(ft.id,ep.id,"amount",v)} />
+                          <InlineField label="Timing (months)" suffix="mo" value={ep.month} onChange={v=>updExtraP(ft.id,ep.id,"month",v)} min={1} />
+                        </div>
+                        <div style={{ display:"flex", gap:0, marginTop:4 }}>
+                          {[["afterSale","After Sale"],["absolute","At Month"]].map(([val,lbl])=>(
+                            <button key={val} onClick={()=>updExtraP(ft.id,ep.id,"timingType",val)} style={{
+                              flex:1, padding:"4px 6px", border:"1px solid var(--border)",
+                              background:ep.timingType===val?"var(--accent)":"transparent",
+                              color:ep.timingType===val?"#fff":"var(--muted)",
+                              fontSize:8, cursor:"pointer", fontWeight:600,
+                              borderRight:val==="afterSale"?"none":undefined,
+                            }}>{lbl}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                    <button onClick={()=>addExtraP(ft.id)} style={{ marginTop:8, width:"100%", background:"transparent", border:"1px dashed var(--border)", color:"var(--muted)", padding:"5px", fontSize:8, cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.12em" }}>+ Add Payment</button>
                     {rft && (
                       <div style={{ fontSize:10, color:"var(--muted)", marginTop:6, display:"flex", gap:14 }}>
-                        <span>P4: <strong style={{ color:"var(--gold)", fontFamily:"monospace" }}>{fmt(rft.p4)}</strong></span>
+                        <span>P4 (std): <strong style={{ color:"var(--gold)", fontFamily:"monospace" }}>{fmt(rft.p4)}</strong></span>
                         <span>Price: <strong style={{ fontFamily:"monospace", color:"var(--text2)" }}>{fmt(rft.pricePerFlat)}</strong></span>
                       </div>
                     )}
@@ -383,7 +435,7 @@ function Sidebar({ inputs, setInputs, results, onClose }) {
         {/* Extra Payments (P4, P5, ...) */}
         <div style={{ borderBottom:"1px solid var(--border)" }}>
           <button onClick={()=>toggle("extra")} style={{ width:"100%", padding:"12px 18px", background:"transparent", border:"none", display:"flex", justifyContent:"space-between", alignItems:"center", cursor:"pointer" }}>
-            <span style={{ fontSize:9, fontWeight:600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.18em" }}>Extra Payments — P4, P5... ({inputs.extraPayments.length})</span>
+            <span style={{ fontSize:9, fontWeight:600, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.18em" }}>Global Extra Payments ({inputs.extraPayments.length})</span>
             <span style={{ color:"var(--muted)" }}>{openSection==="extra"?"−":"+"}</span>
           </button>
           {openSection==="extra" && (
