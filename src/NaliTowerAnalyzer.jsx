@@ -158,22 +158,55 @@ function runNaliAnalysis(inputs) {
   }
 
   // ── Summary metrics ──────────────────────────────────────
-  const totalRevPhase1  = months.slice(0, constructionMonths).reduce((s, m) => s + m.cashIn, 0);
-  const totalRevPhase2  = Math.round(cumSoFar * avgP4 * sp); // turnkey
+
+  // PHASE 1 (Excel HQ12): Income during construction + key month (constructionMonths+1)
+  // = P1 (net commission) + P2/P3 collected during build + fixed old-flat income + P4 at key
+  const totalRevPhase1 = months.slice(0, constructionMonths + 1).reduce((s, m) => s + m.cashIn, 0);
+
+  // PHASE 3 After Key (Excel KV11 = SUM(KV5:KV8)):
+  // KV = KU × flats_for_sale where KU = price - P1 - P3 - P4 - P2 (Excel col order E-F-H-K-G)
+  // Uses ACTUAL P4 (negative P4 for type C increases KU, no probability adjustment)
+  const totalRevPhase3 = Math.round(
+    types.reduce((s, t) => {
+      const ku = t.pricePerFlat - t.p1 - t.p3 - t.p4 - t.p2;
+      return s + Math.max(0, ku) * t.flatsForSale;
+    }, 0)
+  );
+
+  // PHASE 2 @ Key (Excel KR11 = IR9+JM9+KM9+KR9):
+  // IR9 = total P2 collected = flats × sp × ip × P2 per type
+  const ir9 = types.reduce((s, t) => s + t.flatsForSale * sp * ip * t.p2, 0);
+  // JM9 = total P3 collected = flats × sp × ip × P3 per type
+  const jm9 = types.reduce((s, t) => s + t.flatsForSale * sp * ip * t.p3, 0);
+  // KM9 = monthly installments from new buyers during construction
+  // Excel: SUM(month_num × units_pm × ip × monthly_install) for months 1..n
+  // = units_pm × ip × monthly_install × n(n+1)/2
+  const n = constructionMonths;
+  const km9 = types.reduce((s, t) => {
+    const unitsPm = (sp * t.flatsForSale) / n;
+    const monthSum = n * (n + 1) / 2; // sum of 1+2+...+n
+    return s + unitsPm * ip * t.monthlyInstallment * monthSum;
+  }, 0);
+  // KR9 = P4 × flats × sp × ip — uses ACTUAL P4 (negative for type C reduces total)
+  const kr9 = types.reduce((s, t) => s + t.p4 * t.flatsForSale * sp * ip, 0);
+  const totalRevPhase2 = Math.round(ir9 + jm9 + km9 + kr9);
+
   const totalRevenue    = totalRevPhase1 + totalRevPhase2;
   const revenueVsCost   = totalRevenue / totalConstructionCost;
   const remainingCost   = Math.max(0, totalConstructionCost - totalRevenue);
 
-  // Net cost (matches Excel C37 formula: C34 + E35)
+  // Require Funding Phase 1 = Total construction cost - Phase 1 income (Excel L9 = L6 - L10)
+  const requireFunding  = Math.max(0, totalConstructionCost - totalRevPhase1);
+
+  // Net cost (Excel C37 formula: construction cost + profit from price margin)
   const profitFromMargin = (salePricePerSqm - baseCostPerSqm - commissionPerSqm) * (totalConstructionCost / 600);
   const netCost          = Math.round(totalConstructionCost + profitFromMargin);
 
-  // Investor profit (DB A36 × A37 = 0.25 × netCost)
+  // Investor profit = 25% of net cost
   const investorProfit   = Math.round(0.25 * netCost);
 
   const flatsRemaining   = Math.round(totalFlatsForSale - cumSoFar * sp);
   const peakFundingGap   = Math.abs(Math.min(...months.map(m => m.net)));
-  const requireFunding   = Math.max(0, totalConstructionCost - totalRevPhase1);
   const totalCommission  = Math.round(cumSoFar * avgArea * commissionPerSqm);
   const profitPct        = Math.round((investorProfit / netCost) * 100 * 10) / 10;
 
@@ -182,6 +215,7 @@ function runNaliAnalysis(inputs) {
     totalFlatsForSale, cumUnitsSold: Math.round(cumSoFar),
     totalRevPhase1: Math.round(totalRevPhase1),
     totalRevPhase2,
+    totalRevPhase3,
     totalRevenue: Math.round(totalRevenue),
     revenueVsCost: Math.round(revenueVsCost * 100),
     remainingCost,
@@ -578,63 +612,80 @@ export default function App() {
             <div ref={dashboardRef} style={{ padding: "36px 36px 80px" }}>
 
               {/* Header */}
-              <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24, display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
-                  <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Calibri', sans-serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
-                  <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                    {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
-                  </p>
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  {/* Export dropdown */}
-                  <div style={{ position: "relative" }}>
-                    <button onClick={() => setShowExportMenu(m => !m)} disabled={!!exporting} style={{
-                      background: "var(--accent)", border: "none", color: "#fff",
-                      padding: "9px 16px", cursor: exporting ? "wait" : "pointer",
-                      fontSize: 9, fontWeight: 600, letterSpacing: "0.15em",
-                      textTransform: "uppercase", opacity: exporting ? 0.7 : 1,
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
-                      <span>↓</span>
-                      {exporting ? "Exporting..." : "Export PNG ▾"}
-                    </button>
-                    {showExportMenu && (
-                      <div style={{
-                        position: "absolute", top: "calc(100% + 4px)", right: 0,
-                        background: "var(--surface)", border: "1px solid var(--border)",
-                        zIndex: 200, minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
-                      }}>
-                        <button onClick={exportOnePage} style={{
-                          width: "100%", padding: "10px 16px", background: "transparent",
-                          border: "none", borderBottom: "1px solid var(--border)",
-                          textAlign: "left", cursor: "pointer", fontSize: 10,
-                          color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                        }}>
-                          ↓ 1 Page (full)
-                        </button>
-                        <button onClick={exportTwoPages} style={{
-                          width: "100%", padding: "10px 16px", background: "transparent",
-                          border: "none", textAlign: "left", cursor: "pointer", fontSize: 10,
-                          color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                        }}>
-                          ↓ 2 Pages (split)
-                        </button>
-                      </div>
-                    )}
+              <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
+                  <div>
+                    <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
+                    <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Calibri', sans-serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
+                    <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                      {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
+                    </p>
                   </div>
-                  {/* Hamburger button */}
-                  <button onClick={() => setSidebarOpen(true)} style={{
-                    background: "var(--surface)", border: "1px solid var(--border)",
-                    padding: "10px 14px", cursor: "pointer", display: "flex",
-                    flexDirection: "column", gap: 5, flexShrink: 0,
-                  }}>
-                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                    <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
-                  </button>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    {/* Export dropdown */}
+                    <div style={{ position: "relative" }}>
+                      <button onClick={() => setShowExportMenu(m => !m)} disabled={!!exporting} style={{
+                        background: "var(--accent)", border: "none", color: "#fff",
+                        padding: "9px 16px", cursor: exporting ? "wait" : "pointer",
+                        fontSize: 9, fontWeight: 600, letterSpacing: "0.15em",
+                        textTransform: "uppercase", opacity: exporting ? 0.7 : 1,
+                        display: "flex", alignItems: "center", gap: 6,
+                      }}>
+                        <span>↓</span>
+                        {exporting ? "Exporting..." : "Export PNG ▾"}
+                      </button>
+                      {showExportMenu && (
+                        <div style={{
+                          position: "absolute", top: "calc(100% + 4px)", right: 0,
+                          background: "var(--surface)", border: "1px solid var(--border)",
+                          zIndex: 200, minWidth: 160, boxShadow: "0 4px 16px rgba(0,0,0,0.1)",
+                        }}>
+                          <button onClick={exportOnePage} style={{
+                            width: "100%", padding: "10px 16px", background: "transparent",
+                            border: "none", borderBottom: "1px solid var(--border)",
+                            textAlign: "left", cursor: "pointer", fontSize: 10,
+                            color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                          }}>↓ 1 Page (full)</button>
+                          <button onClick={exportTwoPages} style={{
+                            width: "100%", padding: "10px 16px", background: "transparent",
+                            border: "none", textAlign: "left", cursor: "pointer", fontSize: 10,
+                            color: "var(--text)", fontWeight: 600, letterSpacing: "0.1em",
+                            textTransform: "uppercase",
+                          }}>↓ 2 Pages (split)</button>
+                        </div>
+                      )}
+                    </div>
+                    {/* Hamburger button */}
+                    <button onClick={() => setSidebarOpen(true)} style={{
+                      background: "var(--surface)", border: "1px solid var(--border)",
+                      padding: "10px 14px", cursor: "pointer", display: "flex",
+                      flexDirection: "column", gap: 5, flexShrink: 0,
+                    }}>
+                      <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                      <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                      <span style={{ display: "block", width: 20, height: 1.5, background: "var(--text)" }} />
+                    </button>
+                  </div>
+                </div>
+                {/* 4 KEY METRICS — from Excel dashboard */}
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 1, background: "var(--border)", marginTop: 20 }}>
+                  <div style={{ background: "#fff3cd", padding: "14px 18px" }}>
+                    <div style={{ fontSize: 9, color: "#856404", fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>Require Funding For Phase 1</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: "#856404", fontFamily: "'Calibri', sans-serif" }}>{fmt(r.requireFunding)}</div>
+                  </div>
+                  <div style={{ background: "#d4edda", padding: "14px 18px" }}>
+                    <div style={{ fontSize: 9, color: "#155724", fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>Cost Income in Phase 1</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: "#155724", fontFamily: "'Calibri', sans-serif" }}>{fmt(r.totalRevPhase1)}</div>
+                  </div>
+                  <div style={{ background: "#d4edda", padding: "14px 18px" }}>
+                    <div style={{ fontSize: 9, color: "#155724", fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>Cost Income in Phase 2 @ Key</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: "#b8953a", fontFamily: "'Calibri', sans-serif" }}>{fmt(r.totalRevPhase2)}</div>
+                  </div>
+                  <div style={{ background: "#d4edda", padding: "14px 18px" }}>
+                    <div style={{ fontSize: 9, color: "#155724", fontWeight: 600, marginBottom: 6, lineHeight: 1.4 }}>Cost Income in Phase 3 After Key</div>
+                    <div style={{ fontSize: 22, fontWeight: 700, color: "#155724", fontFamily: "'Calibri', sans-serif" }}>{fmt(r.totalRevPhase3)}</div>
+                  </div>
                 </div>
               </div>
 
