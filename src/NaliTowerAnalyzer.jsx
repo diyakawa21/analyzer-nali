@@ -6,6 +6,11 @@ import {
 } from "recharts";
 
 // ─────────────────────────────────────────────────────────────
+// SK ESTATE LOGO (embedded as base64)
+// ─────────────────────────────────────────────────────────────
+const SK_LOGO = "data:image/png;base64,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";
+
+// ─────────────────────────────────────────────────────────────
 // NALI TOWER CALCULATION ENGINE
 // Verified against Excel DB sheet — COMPLETELY SEPARATE from SK2
 // ─────────────────────────────────────────────────────────────
@@ -614,12 +619,15 @@ export default function App() {
               {/* Header */}
               <div style={{ marginBottom: 32, borderBottom: "1px solid var(--border)", paddingBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 24 }}>
-                  <div>
-                    <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
-                    <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Calibri', sans-serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
-                    <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
-                      {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
-                    </p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                    <img src={SK_LOGO} alt="SK Estate" style={{ height: 70, objectFit: "contain", flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: 8, color: "var(--accent)", textTransform: "uppercase", letterSpacing: "0.25em", marginBottom: 6 }}>SKE-Plan Study</div>
+                      <h1 style={{ fontSize: 40, fontWeight: 300, fontFamily: "'Calibri', sans-serif", letterSpacing: "0.04em", lineHeight: 1 }}>Nali Tower</h1>
+                      <p style={{ fontSize: 9, color: "var(--muted)", marginTop: 8, letterSpacing: "0.15em", textTransform: "uppercase" }}>
+                        {r.totalFlatsForSale} Flats for Sale · {inputs.saleMonths}-Month Sale Period · {inputs.constructionMonths}-Month Construction
+                      </p>
+                    </div>
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                     {/* Export dropdown */}
