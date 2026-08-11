@@ -154,13 +154,19 @@ function runNaliAnalysis(inputs) {
     }, 0)
   );
 
-  // Phase 2 (IR9+JM9+KM9+KR9)
-  const ir9 = types.reduce((s, t) => s + t.flatsForSale * sp * ip * t.p2, 0);
-  const jm9 = types.reduce((s, t) => s + t.flatsForSale * sp * ip * t.p3, 0);
+  // Phase 2 (IR9+JM9+KM9+KR9) — verified against Excel DB sheet
+  // Only P2/P3 arriving AFTER key is included here.
+  // P2/P3 collected during construction is already in Phase 1 cash flow.
+  // IR9 = P2 from last (p2Timing-1) sale months = 2 months when p2Timing=3
+  const ir9 = types.reduce((s, t) => s + ((sp * t.flatsForSale) / n) * (p2Timing - 1) * ip * t.p2, 0);
+  // JM9 = P3 from last (p3Timing-1) sale months = 6 months when p3Timing=7
+  const jm9 = types.reduce((s, t) => s + ((sp * t.flatsForSale) / n) * (p3Timing - 1) * ip * t.p3, 0);
+  // KM9 = installments collected during construction = units_pm × ip × install × n(n+1)/2
   const km9 = types.reduce((s, t) => {
     const upm = (sp * t.flatsForSale) / n;
     return s + upm * ip * t.monthlyInstallment * (n * (n + 1) / 2);
   }, 0);
+  // KR9 = P4 turnkey = actual P4 (can be negative) × flats × sp × ip
   const kr9 = types.reduce((s, t) => s + t.p4 * t.flatsForSale * sp * ip, 0);
   const totalRevPhase2 = Math.round(ir9 + jm9 + km9 + kr9);
 
