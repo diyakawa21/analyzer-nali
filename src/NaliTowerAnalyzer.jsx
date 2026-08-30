@@ -634,10 +634,8 @@ export default function App() {
                       <span style={{ display:"block", width:20, height:1.5, background:"var(--text)" }}/>
                       <span style={{ display:"block", width:20, height:1.5, background:"var(--text)" }}/>
                     </button>
-                    <button onClick={()=>setProposalOpen(true)} title="Funding Proposal" style={{ background:"#fff3cd", border:"1px solid #f0c040", padding:"10px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:5 }}>
-                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
-                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
-                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
+                    <button onClick={()=>setProposalOpen(true)} style={{ background:"#fff3cd", border:"1px solid #f0c040", padding:"10px 16px", cursor:"pointer", fontSize:9, fontWeight:700, letterSpacing:"0.15em", color:"#856404", textTransform:"uppercase" }}>
+                      Proposal
                     </button>
                   </div>
                 </div>
