@@ -544,6 +544,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen]     = useState(false);
   const [exporting, setExporting]         = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const [proposalOpen, setProposalOpen]   = useState(false);
 
   const results = useMemo(() => {
     try { return runNaliAnalysis(inputs); } catch(e) { console.error(e); return null; }
@@ -632,6 +633,11 @@ export default function App() {
                       <span style={{ display:"block", width:20, height:1.5, background:"var(--text)" }}/>
                       <span style={{ display:"block", width:20, height:1.5, background:"var(--text)" }}/>
                       <span style={{ display:"block", width:20, height:1.5, background:"var(--text)" }}/>
+                    </button>
+                    <button onClick={()=>setProposalOpen(true)} title="Funding Proposal" style={{ background:"#fff3cd", border:"1px solid #f0c040", padding:"10px 14px", cursor:"pointer", display:"flex", flexDirection:"column", gap:5 }}>
+                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
+                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
+                      <span style={{ display:"block", width:20, height:1.5, background:"#856404" }}/>
                     </button>
                   </div>
                 </div>
@@ -849,70 +855,6 @@ export default function App() {
                   </div>
                 )}
 
-                {/* Funding Proposal Section */}
-                <div style={{ marginBottom:24 }}>
-                  <div style={{ fontSize:8, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.2em", marginBottom:12 }}>Funding Proposal — Solution for Investor Shortfall</div>
-                  <div style={{ border:"1px solid var(--border)" }}>
-                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
-                      <thead>
-                        <tr style={{ background:"#fff3cd" }}>
-                          <th style={{ padding:"10px 14px", textAlign:"left", fontSize:8, fontWeight:600, color:"#856404", textTransform:"uppercase", letterSpacing:"0.1em", borderBottom:"1px solid var(--border)", width:"60%" }}>Description</th>
-                          <th style={{ padding:"10px 14px", textAlign:"right", fontSize:8, fontWeight:600, color:"#856404", textTransform:"uppercase", letterSpacing:"0.1em", borderBottom:"1px solid var(--border)" }}>Amount ($)</th>
-                          <th style={{ padding:"10px 14px", width:40, borderBottom:"1px solid var(--border)" }}></th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {inputs.proposalRows.map((row, i) => (
-                          <tr key={row.id} style={{ borderTop:"1px solid var(--border)", background:i%2===0?"var(--surface2)":"var(--bg)" }}>
-                            <td style={{ padding:"8px 14px" }}>
-                              <input value={row.description} onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, description:e.target.value} : r)}))}
-                                style={{ width:"100%", background:"transparent", border:"none", outline:"none", fontSize:11, color:"var(--text)", fontFamily:"Calibri,sans-serif" }}
-                              />
-                            </td>
-                            <td style={{ padding:"8px 14px", textAlign:"right" }}>
-                              <input type="number" value={row.amount} onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, amount:parseFloat(e.target.value)||0} : r)}))}
-                                style={{ width:130, background:"transparent", border:"none", outline:"none", fontSize:11, color:"var(--text)", fontFamily:"monospace", textAlign:"right" }}
-                              />
-                            </td>
-                            <td style={{ padding:"8px 14px", textAlign:"center" }}>
-                              <button onClick={() => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.filter(r => r.id!==row.id)}))}
-                                style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:14 }}>×</button>
-                            </td>
-                          </tr>
-                        ))}
-                        {/* Total row */}
-                        {(() => {
-                          const total = inputs.proposalRows.reduce((s,r) => s+r.amount, 0);
-                          const deficit = total - (r?.requireFunding || 0);
-                          return (
-                            <>
-                              <tr style={{ borderTop:"2px solid var(--border)", background:"#fff3cd" }}>
-                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:11, color:"#856404" }}>Total Proposed Solution</td>
-                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:14, color:"#856404", textAlign:"right", fontFamily:"monospace" }}>${total.toLocaleString()}</td>
-                                <td></td>
-                              </tr>
-                              <tr style={{ background: deficit >= 0 ? "#d4edda" : "#f8d7da" }}>
-                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:11, color: deficit >= 0 ? "#155724" : "#721c24" }}>
-                                  {deficit >= 0 ? "✓ Surplus after covering shortfall" : "⚠ Remaining deficit after proposal"}
-                                </td>
-                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:14, color: deficit >= 0 ? "#155724" : "#721c24", textAlign:"right", fontFamily:"monospace" }}>
-                                  {deficit >= 0 ? "+" : ""}{deficit.toLocaleString(undefined, {maximumFractionDigits:0})}
-                                </td>
-                                <td></td>
-                              </tr>
-                            </>
-                          );
-                        })()}
-                      </tbody>
-                    </table>
-                    <div style={{ padding:"8px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:"1px solid var(--border)", background:"var(--surface)" }}>
-                      <span style={{ fontSize:9, color:"var(--muted)" }}>Require Funding Phase 1: <strong style={{ color:"var(--accent)" }}>{fmt(r?.requireFunding)}</strong></span>
-                      <button onClick={() => setInputs(prev => ({...prev, proposalRows: [...prev.proposalRows, {id:Date.now(), description:"New item", amount:0}]}))}
-                        style={{ background:"transparent", border:"1px dashed var(--border)", color:"var(--muted)", padding:"5px 12px", fontSize:9, cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.12em" }}>+ Add Row</button>
-                    </div>
-                  </div>
-                </div>
-
                 {/* Parameters footer */}
                 <div style={{ borderTop:"1px solid var(--border)", paddingTop:18, display:"flex", gap:24, flexWrap:"wrap" }}>
                   <div style={{ fontSize:8, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.2em", alignSelf:"center" }}>Parameters</div>
@@ -938,6 +880,89 @@ export default function App() {
             <div style={{ display:"flex", alignItems:"center", justifyContent:"center", height:"100%", color:"var(--muted)", fontSize:12, letterSpacing:"0.1em", textTransform:"uppercase" }}>Loading...</div>
           )}
         </main>
+        {/* RIGHT DRAWER — Funding Proposal */}
+        {proposalOpen && (
+          <div onClick={()=>setProposalOpen(false)} style={{ position:"fixed", inset:0, background:"rgba(0,0,0,0.25)", zIndex:40 }}/>
+        )}
+        <div style={{
+          position:"fixed", top:0, right:0, height:"100vh", width:480, zIndex:50,
+          transform:proposalOpen?"translateX(0)":"translateX(100%)",
+          transition:"transform 0.25s ease",
+          background:"var(--surface)", borderLeft:"1px solid var(--border)",
+          boxShadow:proposalOpen?"-4px 0 20px rgba(0,0,0,0.12)":"none",
+          display:"flex", flexDirection:"column", overflowY:"auto",
+        }}>
+          {/* Drawer header */}
+          <div style={{ padding:"16px 20px", borderBottom:"1px solid var(--border)", background:"#fff3cd", display:"flex", alignItems:"center", justifyContent:"space-between", flexShrink:0 }}>
+            <div>
+              <div style={{ fontSize:9, color:"#856404", textTransform:"uppercase", letterSpacing:"0.2em", marginBottom:4 }}>Funding Proposal</div>
+              <div style={{ fontSize:16, fontWeight:600, color:"#856404" }}>Solution for Investor Shortfall</div>
+            </div>
+            <button onClick={()=>setProposalOpen(false)} style={{ background:"transparent", border:"none", cursor:"pointer", color:"#856404", fontSize:22 }}>×</button>
+          </div>
+
+          {/* Require funding display */}
+          <div style={{ padding:"14px 20px", background:"#fff8e1", borderBottom:"1px solid #f0c040", flexShrink:0 }}>
+            <div style={{ fontSize:9, color:"#856404", textTransform:"uppercase", letterSpacing:"0.15em", marginBottom:4 }}>Total Funding Required (Phase 1)</div>
+            <div style={{ fontSize:28, fontWeight:700, color:"#856404", fontFamily:"Calibri,sans-serif" }}>{fmt(r?.requireFunding)}</div>
+          </div>
+
+          {/* Proposal rows */}
+          <div style={{ flex:1, overflowY:"auto", padding:"16px 20px" }}>
+            {(inputs.proposalRows||[]).map((row, i) => {
+              const isDeficit = row.amount < 0;
+              return (
+                <div key={row.id} style={{ marginBottom:12, padding:"12px 14px", background:isDeficit?"#f8d7da":"var(--surface2)", border:`1px solid ${isDeficit?"#f5c6cb":"var(--border)"}` }}>
+                  <div style={{ display:"flex", alignItems:"flex-start", justifyContent:"space-between", gap:8 }}>
+                    <div style={{ flex:1 }}>
+                      <div style={{ fontSize:9, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>Item {i+1}</div>
+                      <textarea value={row.description} rows={2}
+                        onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, description:e.target.value} : r)}))}
+                        style={{ width:"100%", background:"transparent", border:"none", outline:"none", fontSize:11, color:"var(--text)", fontFamily:"Calibri,sans-serif", resize:"none", lineHeight:1.4 }}
+                      />
+                    </div>
+                    <button onClick={() => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.filter(r => r.id!==row.id)}))}
+                      style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:16, flexShrink:0 }}>×</button>
+                  </div>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginTop:8 }}>
+                    <span style={{ fontSize:12, color:isDeficit?"#721c24":"var(--muted)" }}>$</span>
+                    <input type="number" value={row.amount}
+                      onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, amount:parseFloat(e.target.value)||0} : r)}))}
+                      style={{ flex:1, background:"var(--input-bg)", border:"1px solid var(--border)", padding:"6px 10px", fontSize:14, fontWeight:600, color:isDeficit?"#721c24":"var(--text)", fontFamily:"monospace", outline:"none" }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+
+            <button onClick={() => setInputs(prev => ({...prev, proposalRows: [...(prev.proposalRows||[]), {id:Date.now(), description:"New proposal item", amount:0}]}))}
+              style={{ width:"100%", background:"transparent", border:"1px dashed var(--border)", color:"var(--muted)", padding:"10px", fontSize:9, cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.15em", marginTop:4 }}>
+              + Add Row
+            </button>
+          </div>
+
+          {/* Summary footer */}
+          {(() => {
+            const total = (inputs.proposalRows||[]).reduce((s,row) => s+row.amount, 0);
+            const deficit = total - (r?.requireFunding || 0);
+            return (
+              <div style={{ borderTop:"2px solid var(--border)", padding:"16px 20px", flexShrink:0 }}>
+                <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom:10 }}>
+                  <span style={{ fontSize:9, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.15em" }}>Total Proposed</span>
+                  <span style={{ fontSize:20, fontWeight:700, color:"#856404", fontFamily:"monospace" }}>${total.toLocaleString()}</span>
+                </div>
+                <div style={{ padding:"12px 14px", background:deficit>=0?"#d4edda":"#f8d7da", border:`1px solid ${deficit>=0?"#c3e6cb":"#f5c6cb"}` }}>
+                  <div style={{ fontSize:9, color:deficit>=0?"#155724":"#721c24", textTransform:"uppercase", letterSpacing:"0.12em", marginBottom:4 }}>
+                    {deficit>=0?"✓ Surplus after covering shortfall":"⚠ Remaining deficit after proposal"}
+                  </div>
+                  <div style={{ fontSize:24, fontWeight:700, color:deficit>=0?"#155724":"#721c24", fontFamily:"monospace" }}>
+                    {deficit>=0?"+":""}{Math.round(deficit).toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </div>
       </div>
     </>
   );
