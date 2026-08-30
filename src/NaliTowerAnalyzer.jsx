@@ -211,15 +211,23 @@ const DEFAULT_INPUTS = {
   saleProbability: 80, installmentProbability: 70,
   saleMonths: 9, constructionMonths: 9,
   commissionPerSqm: 30, p2Timing: 3, p3Timing: 7,
-  phase3Years: 5, totalConstructionCost: 8379750,
+  phase3Years: 5, totalConstructionCost: 9200000,
   oldFlatsCount: 150, oldFlatMonthly: 750,
-  monthlyCostSchedule: [418987.5,418987.5,502785,670380,670380,670380,586582.5,586582.5,586582.5],
+  monthlyCostSchedule: [460000,460000,552000,736000,736000,736000,644000,644000,644000],
   extraPayments: [],
   flatTypes: [
-    { id:1, name:"Type A – 223m²", area:223, floorsCount:1, unitsPerFloor:165, flatsForSale:95,  p1:35000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
-    { id:2, name:"Type B – 201m²", area:201, floorsCount:1, unitsPerFloor:76,  flatsForSale:38,  p1:30000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
-    { id:3, name:"Type C – 164m²", area:164, floorsCount:1, unitsPerFloor:83,  flatsForSale:27,  p1:25000, p2:20000, p3:70000, monthlyInstallment:500, extraPs:[] },
-    { id:4, name:"Type D – 108m²", area:108, floorsCount:1, unitsPerFloor:9,   flatsForSale:0,   p1:0,     p2:0,     p3:0,     monthlyInstallment:500, extraPs:[] },
+    { id:1, name:"Type A – 223m²", area:223, floorsCount:1, unitsPerFloor:165, flatsForSale:95, p1:35000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
+    { id:2, name:"Type B – 201m²", area:201, floorsCount:1, unitsPerFloor:76,  flatsForSale:38, p1:30000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
+    { id:3, name:"Type C – 164m²", area:164, floorsCount:1, unitsPerFloor:83,  flatsForSale:27, p1:25000, p2:20000, p3:10000, monthlyInstallment:500, extraPs:[] },
+    { id:4, name:"Type D – 108m²", area:108, floorsCount:1, unitsPerFloor:9,   flatsForSale:0,  p1:22500, p2:7500,  p3:7500,  monthlyInstallment:500, extraPs:[] },
+  ],
+  // Funding proposal rows (editable by user)
+  proposalRows: [
+    { id:1, description:"Investor guarantee to contractor for full project budget", amount:500000 },
+    { id:2, description:"5% cash savings returned to investors by 1-6-2028", amount:460000 },
+    { id:3, description:"Monthly rent delivery Zone 1 Nali Tower ($75,000 × 9 months)", amount:675000 },
+    { id:4, description:"Firoshtani Salim Tower by 1-12-2027 ($50,000 × 6 months)", amount:300000 },
+    { id:5, description:"Collecting 90% of unpaid installments", amount:0 },
   ],
 };
 
@@ -840,6 +848,70 @@ export default function App() {
                     </div>
                   </div>
                 )}
+
+                {/* Funding Proposal Section */}
+                <div style={{ marginBottom:24 }}>
+                  <div style={{ fontSize:8, color:"var(--muted)", textTransform:"uppercase", letterSpacing:"0.2em", marginBottom:12 }}>Funding Proposal — Solution for Investor Shortfall</div>
+                  <div style={{ border:"1px solid var(--border)" }}>
+                    <table style={{ width:"100%", borderCollapse:"collapse", fontSize:11 }}>
+                      <thead>
+                        <tr style={{ background:"#fff3cd" }}>
+                          <th style={{ padding:"10px 14px", textAlign:"left", fontSize:8, fontWeight:600, color:"#856404", textTransform:"uppercase", letterSpacing:"0.1em", borderBottom:"1px solid var(--border)", width:"60%" }}>Description</th>
+                          <th style={{ padding:"10px 14px", textAlign:"right", fontSize:8, fontWeight:600, color:"#856404", textTransform:"uppercase", letterSpacing:"0.1em", borderBottom:"1px solid var(--border)" }}>Amount ($)</th>
+                          <th style={{ padding:"10px 14px", width:40, borderBottom:"1px solid var(--border)" }}></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {inputs.proposalRows.map((row, i) => (
+                          <tr key={row.id} style={{ borderTop:"1px solid var(--border)", background:i%2===0?"var(--surface2)":"var(--bg)" }}>
+                            <td style={{ padding:"8px 14px" }}>
+                              <input value={row.description} onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, description:e.target.value} : r)}))}
+                                style={{ width:"100%", background:"transparent", border:"none", outline:"none", fontSize:11, color:"var(--text)", fontFamily:"Calibri,sans-serif" }}
+                              />
+                            </td>
+                            <td style={{ padding:"8px 14px", textAlign:"right" }}>
+                              <input type="number" value={row.amount} onChange={e => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.map(r => r.id===row.id ? {...r, amount:parseFloat(e.target.value)||0} : r)}))}
+                                style={{ width:130, background:"transparent", border:"none", outline:"none", fontSize:11, color:"var(--text)", fontFamily:"monospace", textAlign:"right" }}
+                              />
+                            </td>
+                            <td style={{ padding:"8px 14px", textAlign:"center" }}>
+                              <button onClick={() => setInputs(prev => ({...prev, proposalRows: prev.proposalRows.filter(r => r.id!==row.id)}))}
+                                style={{ background:"transparent", border:"none", cursor:"pointer", color:"var(--muted)", fontSize:14 }}>×</button>
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Total row */}
+                        {(() => {
+                          const total = inputs.proposalRows.reduce((s,r) => s+r.amount, 0);
+                          const deficit = total - (r?.requireFunding || 0);
+                          return (
+                            <>
+                              <tr style={{ borderTop:"2px solid var(--border)", background:"#fff3cd" }}>
+                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:11, color:"#856404" }}>Total Proposed Solution</td>
+                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:14, color:"#856404", textAlign:"right", fontFamily:"monospace" }}>${total.toLocaleString()}</td>
+                                <td></td>
+                              </tr>
+                              <tr style={{ background: deficit >= 0 ? "#d4edda" : "#f8d7da" }}>
+                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:11, color: deficit >= 0 ? "#155724" : "#721c24" }}>
+                                  {deficit >= 0 ? "✓ Surplus after covering shortfall" : "⚠ Remaining deficit after proposal"}
+                                </td>
+                                <td style={{ padding:"10px 14px", fontWeight:700, fontSize:14, color: deficit >= 0 ? "#155724" : "#721c24", textAlign:"right", fontFamily:"monospace" }}>
+                                  {deficit >= 0 ? "+" : ""}{deficit.toLocaleString(undefined, {maximumFractionDigits:0})}
+                                </td>
+                                <td></td>
+                              </tr>
+                            </>
+                          );
+                        })()}
+                      </tbody>
+                    </table>
+                    <div style={{ padding:"8px 14px", display:"flex", justifyContent:"space-between", alignItems:"center", borderTop:"1px solid var(--border)", background:"var(--surface)" }}>
+                      <span style={{ fontSize:9, color:"var(--muted)" }}>Require Funding Phase 1: <strong style={{ color:"var(--accent)" }}>{fmt(r?.requireFunding)}</strong></span>
+                      <button onClick={() => setInputs(prev => ({...prev, proposalRows: [...prev.proposalRows, {id:Date.now(), description:"New item", amount:0}]}))}
+                        style={{ background:"transparent", border:"1px dashed var(--border)", color:"var(--muted)", padding:"5px 12px", fontSize:9, cursor:"pointer", textTransform:"uppercase", letterSpacing:"0.12em" }}>+ Add Row</button>
+                    </div>
+                  </div>
+                </div>
 
                 {/* Parameters footer */}
                 <div style={{ borderTop:"1px solid var(--border)", paddingTop:18, display:"flex", gap:24, flexWrap:"wrap" }}>
